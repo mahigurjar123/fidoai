@@ -1,0 +1,27 @@
+name: fido_ai_website
+description: Fido AI - Next-Generation AI Platform (MVVM + Bloc)
+version: 2.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+  go_router: ^14.0.0
+  flutter_animate: ^4.5.0
+  google_fonts: ^6.2.1
+  visibility_detector: ^0.4.0+2
+  animated_text_kit: ^4.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
