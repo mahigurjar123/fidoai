@@ -12,8 +12,18 @@ import '../../data/models.dart';
 import '../shared/gradient_button.dart';
 import '../shared/section_badge.dart';
 import '../shared/app_footer.dart';
+import '../shared/svg_icons.dart';
 import 'bloc/home_cubit.dart';
 import 'widgets/sphere_3d.dart';
+
+// Map FeatureModel.icon (IconData) → FidoIcon
+FidoIcon _featureIcon(IconData icon) {
+  if (icon == Icons.chat_bubble_rounded) return FidoIcon.chat;
+  if (icon == Icons.auto_awesome_rounded) return FidoIcon.sparkle;
+  if (icon == Icons.bolt_rounded) return FidoIcon.bolt;
+  if (icon == Icons.shield_rounded) return FidoIcon.shield;
+  return FidoIcon.sparkle;
+}
 
 // ═══════════════════════════════════════════════════════════
 // MAIN HOME PAGE — 8 Sections
@@ -89,7 +99,20 @@ class _HeroSectionState extends State<_HeroSection> with TickerProviderStateMixi
     final hPad    = R.hp(context);
     final sphereSz = isMobile ? 220.0 : R.tablet(context) ? 300.0 : 400.0;
 
-    return Container(
+    return Stack(
+      children: [
+        // Animated circuit board background
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _shimCtrl,
+              builder: (_, __) => CustomPaint(
+                painter: _CircuitBgPainter(t: _shimCtrl.value),
+              ),
+            ),
+          ),
+        ),
+        Container(
       padding: EdgeInsets.only(top: 100, left: hPad, right: hPad, bottom: 80),
       child: isMobile
           ? Column(children: [
@@ -112,6 +135,8 @@ class _HeroSectionState extends State<_HeroSection> with TickerProviderStateMixi
               const SizedBox(height: 28),
               _buildTags(context),
             ]),
+        ),
+      ],
     );
   }
 
@@ -308,14 +333,14 @@ class _TrustedBySectionState extends State<_TrustedBySection>
   late AnimationController _pulseCtrl;
 
   static const _logos = [
-    ('NEXUS',   AppColors.purple, Icons.hub_rounded),
-    ('ORION',   AppColors.blue,   Icons.language_rounded),
-    ('STELLAR', AppColors.cyan,   Icons.star_rounded),
-    ('VERTEX',  AppColors.pink,   Icons.scatter_plot_rounded),
-    ('PRISM',   AppColors.purple, Icons.lens_blur_rounded),
-    ('APEX',    AppColors.blue,   Icons.trending_up_rounded),
-    ('FLUX',    AppColors.cyan,   Icons.electric_bolt_rounded),
-    ('NOVA',    AppColors.pink,   Icons.flare_rounded),
+    ('NEXUS',   AppColors.purple, FidoIcon.hub),
+    ('ORION',   AppColors.blue,   FidoIcon.globe),
+    ('STELLAR', AppColors.cyan,   FidoIcon.star),
+    ('VERTEX',  AppColors.pink,   FidoIcon.network),
+    ('PRISM',   AppColors.purple, FidoIcon.diamond),
+    ('APEX',    AppColors.blue,   FidoIcon.trending),
+    ('FLUX',    AppColors.cyan,   FidoIcon.flash),
+    ('NOVA',    AppColors.pink,   FidoIcon.sparkle),
   ];
 
   // Each badge is 200px wide; two sets = 1600px total scrollable width
@@ -399,7 +424,7 @@ class _TrustedBySectionState extends State<_TrustedBySection>
 class _LogoBadge3D extends StatefulWidget {
   final String name;
   final Color color;
-  final IconData icon;
+  final FidoIcon icon;
   final AnimationController pulse;
   const _LogoBadge3D({required this.name, required this.color,
       required this.icon, required this.pulse});
@@ -480,17 +505,14 @@ class _LogoBadge3DState extends State<_LogoBadge3D>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Floating icon
+                  // Floating SVG icon
                   Transform.translate(
                     offset: Offset(0, _h ? -2 : -_floatCtrl.value * 2),
-                    child: ShaderMask(
-                      shaderCallback: (b) => LinearGradient(
-                        colors: [widget.color, widget.color.withOpacity(.7)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ).createShader(b),
-                      child: Icon(widget.icon, color: Colors.white,
-                          size: _h ? 24 : 20),
+                    child: AnimatedSvgIcon(
+                      type: widget.icon,
+                      color: widget.color,
+                      size: _h ? 30 : 26,
+                      duration: Duration(milliseconds: 2800 + (widget.name.hashCode % 600).abs()),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -699,7 +721,7 @@ class _FeatureFlipCardState extends State<_FeatureFlipCard> with TickerProviderS
                           spreadRadius: 1 + 2 * _iconCtrl.value,
                         )],
                       ),
-                      child: Icon(f.icon, color: Colors.white, size: 26),
+                      child: AnimatedSvgIcon(type: _featureIcon(f.icon), color: Colors.white, size: 30),
                     ),
                   ),
                   // Orbital sparkle particles
@@ -764,7 +786,7 @@ class _FeatureFlipCardState extends State<_FeatureFlipCard> with TickerProviderS
                   borderRadius: BorderRadius.circular(9),
                   boxShadow: [BoxShadow(color: f.color.withOpacity(.55), blurRadius: 12)],
                 ),
-                child: Icon(f.icon, color: Colors.white, size: 17),
+                child: AnimatedSvgIcon(type: _featureIcon(f.icon), color: f.color, size: 22),
               ),
               const SizedBox(width: 10),
               Expanded(child: Text(f.title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white))),
@@ -883,11 +905,11 @@ class _HowItWorksSectionState extends State<_HowItWorksSection> with TickerProvi
   bool _visible = false;
 
   static const _steps = [
-    (Icons.person_add_rounded, AppColors.purple, 'Create Account',
+    (FidoIcon.person, AppColors.purple, 'Create Account',
      'Sign up in 30 seconds. No credit card required. Choose your plan and get instant access to all AI features.'),
-    (Icons.tune_rounded, AppColors.blue, 'Configure Your AI',
+    (FidoIcon.settings, AppColors.blue, 'Configure Your AI',
      'Personalize tone, style, language, and output preferences. Set up your workspace and connect your tools.'),
-    (Icons.auto_awesome_rounded, AppColors.cyan, 'Start Creating',
+    (FidoIcon.sparkle, AppColors.cyan, 'Start Creating',
      'Generate images, chat with AI, process data in real-time. Export, share, and integrate anywhere.'),
   ];
 
@@ -973,7 +995,7 @@ class _HowItWorksSectionState extends State<_HowItWorksSection> with TickerProvi
   }
 
   Widget _buildStepCard(BuildContext ctx, int i, dynamic step, bool mobile) {
-    final icon   = step.$1 as IconData;
+    final icon   = step.$1 as FidoIcon;
     final color  = step.$2 as Color;
     final title  = step.$3 as String;
     final desc   = step.$4 as String;
@@ -1006,7 +1028,9 @@ class _HowItWorksSectionState extends State<_HowItWorksSection> with TickerProvi
               ),
               child: Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(icon, color: Colors.white, size: 26),
+                  AnimatedSvgIcon(type: icon, color: Colors.white, size: 32,
+                    duration: const Duration(milliseconds: 2400)),
+                  const SizedBox(height: 2),
                   Text('0${i + 1}', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white.withOpacity(.7))),
                 ]),
               ),
@@ -1213,10 +1237,10 @@ class _DemoSectionState extends State<_DemoSection> with SingleTickerProviderSta
 
   Widget _buildHighlights(BuildContext context) {
     const hl = [
-      (Icons.flash_on_rounded,   AppColors.cyan,   'Ultra-Fast Streaming', 'Sub-100ms first token, real-time output'),
-      (Icons.psychology_rounded, AppColors.purple, 'Smart Context',        '128K token memory for long sessions'),
-      (Icons.image_rounded,      AppColors.blue,   'HD Image Generation',  'DALL·E 3 at 1024×1024 resolution'),
-      (Icons.lock_rounded,       AppColors.pink,   'Zero Data Retention',  'Your conversations stay private'),
+      (FidoIcon.flash,    AppColors.cyan,   'Ultra-Fast Streaming', 'Sub-100ms first token, real-time output'),
+      (FidoIcon.brain,    AppColors.purple, 'Smart Context',        '128K token memory for long sessions'),
+      (FidoIcon.image,    AppColors.blue,   'HD Image Generation',  'DALL·E 3 at 1024×1024 resolution'),
+      (FidoIcon.lock,     AppColors.pink,   'Zero Data Retention',  'Your conversations stay private'),
     ];
 
     return Column(
@@ -1227,10 +1251,11 @@ class _DemoSectionState extends State<_DemoSection> with SingleTickerProviderSta
           padding: const EdgeInsets.only(bottom: 22),
           child: Row(children: [
             Container(
-              width: 50, height: 50,
+              width: 54, height: 54,
               decoration: BoxDecoration(shape: BoxShape.circle, color: h.$2.withOpacity(.1),
                   border: Border.all(color: h.$2.withOpacity(.3))),
-              child: Icon(h.$1, color: h.$2, size: 22),
+              child: Center(child: AnimatedSvgIcon(type: h.$1, color: h.$2, size: 28,
+                  duration: const Duration(milliseconds: 2600))),
             ),
             const SizedBox(width: 16),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1856,4 +1881,83 @@ class _TagState extends State<_Tag> {
           style: GoogleFonts.inter(fontSize: 12, color: _h ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.w500)),
     ),
   );
+}
+
+// ═══════════════════════════════════════════════════════════
+// HERO BACKGROUND — Animated Circuit Board
+// ═══════════════════════════════════════════════════════════
+class _CircuitBgPainter extends CustomPainter {
+  final double t;
+  const _CircuitBgPainter({required this.t});
+
+  static const _nodes = [
+    (0.10, 0.20), (0.30, 0.15), (0.55, 0.25), (0.80, 0.18),
+    (0.15, 0.50), (0.40, 0.45), (0.65, 0.40), (0.88, 0.55),
+    (0.22, 0.75), (0.50, 0.70), (0.75, 0.80), (0.92, 0.30),
+  ];
+  static const _edges = [
+    (0, 1), (1, 2), (2, 3), (0, 4), (1, 5), (2, 6), (3, 7),
+    (4, 5), (5, 6), (6, 7), (4, 8), (5, 9), (6, 10), (7, 11),
+    (8, 9), (9, 10),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = const Color(0xFF7B2FFF).withOpacity(0.06)
+      ..strokeWidth = 1.0;
+    final nodePaint = Paint();
+    final packetPaint = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+
+    // Draw edges (circuit lines)
+    for (final edge in _edges) {
+      final a = _nodes[edge.$1];
+      final b = _nodes[edge.$2];
+      final p1 = Offset(a.$1 * size.width, a.$2 * size.height);
+      final p2 = Offset(b.$1 * size.width, b.$2 * size.height);
+
+      // Draw L-shaped circuit line (horizontal then vertical)
+      canvas.drawLine(p1, Offset(p2.dx, p1.dy), linePaint);
+      canvas.drawLine(Offset(p2.dx, p1.dy), p2, linePaint);
+
+      // Animated data packet along this edge
+      final phase = ((t * 2 + edge.$1 * 0.15 + edge.$2 * 0.07) % 1.0);
+      if (phase < 0.6) {
+        final frac = phase / 0.6;
+        final mid = Offset(p2.dx, p1.dy);
+        final Offset packetPos;
+        if (frac < 0.5) {
+          packetPos = Offset.lerp(p1, mid, frac * 2)!;
+        } else {
+          packetPos = Offset.lerp(mid, p2, (frac - 0.5) * 2)!;
+        }
+        final pOpacity = sin(phase * pi / 0.6) * 0.6;
+        packetPaint.color = const Color(0xFF2F8FFF).withOpacity(pOpacity);
+        canvas.drawCircle(packetPos, 2.0, packetPaint);
+      }
+    }
+
+    // Draw nodes (intersection points)
+    for (int i = 0; i < _nodes.length; i++) {
+      final n = _nodes[i];
+      final pos = Offset(n.$1 * size.width, n.$2 * size.height);
+      final pulse = (sin(t * 2 * pi * 1.5 + i * 0.8) + 1) / 2;
+
+      // Glow ring
+      nodePaint.color = const Color(0xFF7B2FFF).withOpacity(0.04 + 0.06 * pulse);
+      canvas.drawCircle(pos, 7 + 3 * pulse, nodePaint);
+
+      // Core dot
+      nodePaint.color = const Color(0xFF7B2FFF).withOpacity(0.15 + 0.15 * pulse);
+      canvas.drawCircle(pos, 2.5, nodePaint);
+
+      // Inner bright dot
+      nodePaint.color = Colors.white.withOpacity(0.08 + 0.10 * pulse);
+      canvas.drawCircle(pos, 1.2, nodePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CircuitBgPainter o) => o.t != t;
 }
