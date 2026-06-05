@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
+import 'fido_logo.dart';
 
 class AppFooter extends StatefulWidget {
   const AppFooter({super.key});
@@ -163,32 +164,8 @@ class _AppFooterState extends State<AppFooter> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Logo
-        Row(children: [
-          AnimatedBuilder(
-            animation: _glowCtrl,
-            builder: (_, __) => Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(11),
-                gradient: AppColors.primaryGrad,
-                boxShadow: [BoxShadow(
-                  color: AppColors.purple.withOpacity(.35 + .15 * _glowCtrl.value),
-                  blurRadius: 12 + 5 * _glowCtrl.value,
-                )],
-              ),
-              alignment: Alignment.center,
-              child: const Text('F',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-            ),
-          ),
-          const SizedBox(width: 10),
-          ShaderMask(
-            shaderCallback: (b) => AppColors.primaryGrad.createShader(b),
-            child: Text('Fido AI',
-                style: GoogleFonts.inter(fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
-          ),
-        ]),
+        // Animated 3D Logo
+        const FidoAILogo(size: 36, showText: true),
         const SizedBox(height: 14),
         Text(
           'Next-generation AI platform for creators, developers, and enterprises worldwide.',

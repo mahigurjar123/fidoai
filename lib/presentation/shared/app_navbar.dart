@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'gradient_button.dart';
+import 'fido_logo.dart';
 
 class AppNavBar extends StatefulWidget {
   const AppNavBar({super.key});
@@ -102,52 +103,14 @@ class _AppNavBarState extends State<AppNavBar> {
   }
 }
 
-class _Logo extends StatefulWidget {
+class _Logo extends StatelessWidget {
   const _Logo();
 
   @override
-  State<_Logo> createState() => _LogoState();
-}
-
-class _LogoState extends State<_Logo> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: () => context.go('/'),
-        child: AnimatedScale(
-          scale: _hovered ? 1.06 : 1.0,
-          duration: 200.ms,
-          child: Row(children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                gradient: AppColors.primaryGrad,
-                boxShadow: [BoxShadow(color: AppColors.purple.withOpacity(0.5), blurRadius: 14)],
-              ),
-              child: const Center(
-                child: Text('F',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            ShaderMask(
-              shaderCallback: (b) => AppColors.primaryGrad.createShader(b),
-              child: Text(
-                'Fido AI',
-                style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
-              ),
-            ),
-          ]),
-        ),
-      ),
+    return GestureDetector(
+      onTap: () => context.go('/'),
+      child: const FidoAILogo(size: 40, showText: true),
     );
   }
 }
