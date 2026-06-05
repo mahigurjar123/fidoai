@@ -1658,17 +1658,17 @@ class _CTASectionState extends State<_CTASection> with TickerProviderStateMixin 
         )),
         // Content
         Column(children: [
-          // Rocket
+          // 3D Rocket
           AnimatedBuilder(
             animation: _rocketCtrl,
             builder: (_, __) => Transform.translate(
-              offset: Offset(0, -100 * _rocketCtrl.value),
+              offset: Offset(0, -200 * _rocketCtrl.value),
               child: Opacity(
-                opacity: (1 - _rocketCtrl.value).clamp(0.0, 1.0),
-                child: const Text('🚀', style: TextStyle(fontSize: 52)),
+                opacity: (1 - _rocketCtrl.value * 1.4).clamp(0.0, 1.0),
+                child: _Rocket3DWidget(launchProgress: _rocketCtrl.value),
               ),
             ),
-          ).animate().fadeIn(duration: 700.ms).slideY(begin: .3, end: 0),
+          ).animate().fadeIn(duration: 900.ms).slideY(begin: .4, end: 0),
           const SizedBox(height: 24),
           // Shimmer headline
           AnimatedBuilder(
@@ -1881,6 +1881,441 @@ class _TagState extends State<_Tag> {
           style: GoogleFonts.inter(fontSize: 12, color: _h ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.w500)),
     ),
   );
+}
+
+// ═══════════════════════════════════════════════════════════
+// 3D ANIMATED ROCKET
+// ═══════════════════════════════════════════════════════════
+class _Rocket3DWidget extends StatefulWidget {
+  final double launchProgress;
+  const _Rocket3DWidget({required this.launchProgress});
+
+  @override
+  State<_Rocket3DWidget> createState() => _Rocket3DWidgetState();
+}
+
+class _Rocket3DWidgetState extends State<_Rocket3DWidget>
+    with TickerProviderStateMixin {
+  late AnimationController _floatCtrl;
+  late AnimationController _flameCtrl;
+  late AnimationController _orbitCtrl;
+  late AnimationController _glowCtrl;
+  late AnimationController _trailCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _floatCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))
+      ..repeat(reverse: true);
+    _flameCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 120))
+      ..repeat(reverse: true);
+    _orbitCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))
+      ..repeat();
+    _glowCtrl  = AnimationController(vsync: this, duration: const Duration(seconds: 2))
+      ..repeat(reverse: true);
+    _trailCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _floatCtrl.dispose(); _flameCtrl.dispose();
+    _orbitCtrl.dispose(); _glowCtrl.dispose(); _trailCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge(
+          [_floatCtrl, _flameCtrl, _orbitCtrl, _glowCtrl, _trailCtrl]),
+      builder: (_, __) => RepaintBoundary(
+        child: CustomPaint(
+          size: const Size(200, 280),
+          painter: _Rocket3DPainter(
+            float:   _floatCtrl.value,
+            flame:   _flameCtrl.value,
+            orbit:   _orbitCtrl.value,
+            glow:    _glowCtrl.value,
+            trail:   _trailCtrl.value,
+            launch:  widget.launchProgress,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Rocket3DPainter extends CustomPainter {
+  final double float, flame, orbit, glow, trail, launch;
+  const _Rocket3DPainter({
+    required this.float, required this.flame, required this.orbit,
+    required this.glow,  required this.trail,  required this.launch,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx   = size.width  / 2;        // 100
+    final cy   = size.height / 2;        // 140
+    final floatY = -12 * sin(float * pi); // ±12px bob
+
+    // ── 1. Background glow ──────────────────────────────────────────
+    canvas.drawCircle(
+      Offset(cx, cy + floatY + 20),
+      85 + 10 * glow,
+      Paint()
+        ..shader = RadialGradient(colors: [
+          const Color(0xFF2F8FFF).withOpacity(0.18 + 0.08 * glow),
+          const Color(0xFF7B2FFF).withOpacity(0.10 + 0.05 * glow),
+          Colors.transparent,
+        ]).createShader(Rect.fromCircle(
+            center: Offset(cx, cy + floatY + 20), radius: 85 + 10 * glow)),
+    );
+
+    // ── 2. Motion trails (scroll upward as trail advances) ──────────
+    _drawTrails(canvas, cx, floatY, trail);
+
+    // ── 3. Back orbit ring arc ──────────────────────────────────────
+    _drawOrbitBack(canvas, cx, cy + floatY, orbit);
+
+    // ── 4. Exhaust flame + particles ────────────────────────────────
+    _drawFlame(canvas, cx, floatY, flame, trail);
+
+    // ── 5. Rocket fins (drawn before body so body overlaps) ─────────
+    _drawFins(canvas, cx, floatY);
+
+    // ── 6. Rocket body ──────────────────────────────────────────────
+    _drawBody(canvas, cx, floatY);
+
+    // ── 7. Nose cone ────────────────────────────────────────────────
+    _drawNose(canvas, cx, floatY);
+
+    // ── 8. Porthole window ──────────────────────────────────────────
+    _drawWindow(canvas, cx, floatY, orbit);
+
+    // ── 9. Front orbit ring arc + particle ─────────────────────────
+    _drawOrbitFront(canvas, cx, cy + floatY, orbit);
+
+    // ── 10. Specular body shine ─────────────────────────────────────
+    _drawSpecular(canvas, cx, floatY);
+  }
+
+  // ── TRAILS ────────────────────────────────────────────────────────
+  void _drawTrails(Canvas canvas, double cx, double floatY, double t) {
+    const trailOffs = [-18.0, -8.0, 8.0, 18.0];
+    for (int i = 0; i < trailOffs.length; i++) {
+      final phase  = (t + i * 0.22) % 1.0;
+      final opacity = sin(phase * pi) * 0.5;
+      final topY   = 30 + floatY - phase * 40;
+      final botY   = 55 + floatY - phase * 30;
+      canvas.drawLine(
+        Offset(cx + trailOffs[i], topY),
+        Offset(cx + trailOffs[i], botY),
+        Paint()
+          ..color = const Color(0xFF7B2FFF).withOpacity(opacity)
+          ..strokeWidth = 1.5
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  // ── ORBIT BACK (behind rocket) ────────────────────────────────────
+  void _drawOrbitBack(Canvas canvas, double cx, double cy, double t) {
+    final oy = cy + 15;
+    final rect = Rect.fromCenter(center: Offset(cx, oy), width: 130, height: 36);
+    final startAngle = t * 2 * pi;
+    canvas.drawArc(
+      rect, startAngle + pi * 0.08, pi - 0.16, false,
+      Paint()
+        ..color = const Color(0xFF7B2FFF).withOpacity(0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+  }
+
+  // ── FLAME ─────────────────────────────────────────────────────────
+  void _drawFlame(Canvas canvas, double cx, double floatY, double f, double t) {
+    final baseY = 200 + floatY;
+
+    // Particle trail (sparks falling down)
+    for (int i = 0; i < 12; i++) {
+      final phase  = (t * 1.8 + i * 0.14) % 1.0;
+      final px     = cx + (i % 3 - 1) * 10.0 + sin(phase * pi * 3) * 6;
+      final py     = baseY + 10 + phase * 55;
+      final pOpacity = (1 - phase) * 0.7;
+      final pSize  = (1 - phase) * 3.5 + 1;
+      canvas.drawCircle(
+        Offset(px, py),
+        pSize,
+        Paint()
+          ..color = Color.lerp(
+            const Color(0xFFFF8C00),
+            const Color(0xFFFF4500),
+            phase,
+          )!.withOpacity(pOpacity),
+      );
+    }
+
+    // Flame layer 1 — wide orange base
+    final fl1 = 18 + f * 12;
+    final path1 = Path()
+      ..moveTo(cx - 22, baseY)
+      ..quadraticBezierTo(cx - 28, baseY + fl1 * .6, cx, baseY + fl1)
+      ..quadraticBezierTo(cx + 28, baseY + fl1 * .6, cx + 22, baseY)
+      ..close();
+    canvas.drawPath(path1, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFFF6000).withOpacity(0.95),
+          const Color(0xFFFF8C00).withOpacity(0.6),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(cx - 28, baseY, 56, fl1))
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+
+    // Flame layer 2 — yellow core
+    final fl2 = 14 + f * 9;
+    final path2 = Path()
+      ..moveTo(cx - 14, baseY)
+      ..quadraticBezierTo(cx - 18, baseY + fl2 * .55, cx, baseY + fl2)
+      ..quadraticBezierTo(cx + 18, baseY + fl2 * .55, cx + 14, baseY)
+      ..close();
+    canvas.drawPath(path2, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFFFE500).withOpacity(0.95),
+          const Color(0xFFFFAA00).withOpacity(0.5),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(cx - 18, baseY, 36, fl2)));
+
+    // Flame layer 3 — white hot inner core
+    final fl3 = 8 + f * 5;
+    final path3 = Path()
+      ..moveTo(cx - 7, baseY)
+      ..quadraticBezierTo(cx - 8, baseY + fl3 * .5, cx, baseY + fl3)
+      ..quadraticBezierTo(cx + 8, baseY + fl3 * .5, cx + 7, baseY)
+      ..close();
+    canvas.drawPath(path3, Paint()
+      ..color = Colors.white.withOpacity(0.9));
+  }
+
+  // ── FINS ──────────────────────────────────────────────────────────
+  void _drawFins(Canvas canvas, double cx, double floatY) {
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [const Color(0xFFE63946), const Color(0xFF9B2335)],
+      ).createShader(Rect.fromLTWH(cx - 60, 140 + floatY, 120, 65));
+
+    // Left fin
+    final leftFin = Path()
+      ..moveTo(cx - 30, 150 + floatY)
+      ..lineTo(cx - 48, 155 + floatY)
+      ..lineTo(cx - 42, 200 + floatY)
+      ..lineTo(cx - 28, 200 + floatY)
+      ..close();
+    canvas.drawPath(leftFin, paint);
+
+    // Right fin
+    final rightFin = Path()
+      ..moveTo(cx + 30, 150 + floatY)
+      ..lineTo(cx + 48, 155 + floatY)
+      ..lineTo(cx + 42, 200 + floatY)
+      ..lineTo(cx + 28, 200 + floatY)
+      ..close();
+    canvas.drawPath(rightFin, paint);
+
+    // Bottom exhaust nozzle
+    final nozzle = Path()
+      ..moveTo(cx - 20, 193 + floatY)
+      ..lineTo(cx + 20, 193 + floatY)
+      ..lineTo(cx + 14, 205 + floatY)
+      ..lineTo(cx - 14, 205 + floatY)
+      ..close();
+    canvas.drawPath(nozzle, Paint()
+      ..color = const Color(0xFF2C2C54));
+  }
+
+  // ── BODY ──────────────────────────────────────────────────────────
+  void _drawBody(Canvas canvas, double cx, double floatY) {
+    final bodyRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+          center: Offset(cx, 130 + floatY), width: 64, height: 150),
+      const Radius.circular(32),
+    );
+
+    // Main body gradient (3D cylinder shading)
+    canvas.drawRRect(bodyRect, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end:   Alignment.centerRight,
+        colors: [
+          const Color(0xFFDDE4F0),
+          const Color(0xFFBBC5D8),
+          const Color(0xFF8A95B0),
+          const Color(0xFF6B7799),
+        ],
+        stops: const [0.0, 0.3, 0.7, 1.0],
+      ).createShader(Rect.fromCenter(
+          center: Offset(cx, 130 + floatY), width: 64, height: 150)));
+
+    // Red accent stripe
+    final stripeRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(cx - 32, 150 + floatY, 64, 16),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(stripeRect, Paint()
+      ..color = const Color(0xFFE63946).withOpacity(0.85));
+
+    // Body border/outline
+    canvas.drawRRect(bodyRect, Paint()
+      ..color = const Color(0xFF4A5580).withOpacity(0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0);
+  }
+
+  // ── NOSE CONE ─────────────────────────────────────────────────────
+  void _drawNose(Canvas canvas, double cx, double floatY) {
+    final nosePath = Path()
+      ..moveTo(cx, 42 + floatY)
+      ..cubicTo(cx - 4, 52 + floatY, cx - 18, 62 + floatY, cx - 32, 70 + floatY)
+      ..lineTo(cx + 32, 70 + floatY)
+      ..cubicTo(cx + 18, 62 + floatY, cx + 4, 52 + floatY, cx, 42 + floatY)
+      ..close();
+    canvas.drawPath(nosePath, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        colors: [const Color(0xFFE63946), const Color(0xFF9B2335)],
+      ).createShader(Rect.fromLTWH(cx - 32, 42 + floatY, 64, 28)));
+
+    // Nose tip glow
+    canvas.drawCircle(
+      Offset(cx, 48 + floatY),
+      6,
+      Paint()
+        ..color = Colors.white.withOpacity(0.25)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+  }
+
+  // ── WINDOW ────────────────────────────────────────────────────────
+  void _drawWindow(Canvas canvas, double cx, double floatY, double orbit) {
+    final winCenter = Offset(cx, 108 + floatY);
+
+    // Outer ring
+    canvas.drawCircle(winCenter, 18, Paint()
+      ..color = const Color(0xFF2C2C54));
+
+    // Glass fill
+    canvas.drawCircle(winCenter, 15, Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-.35, -.35),
+        colors: [
+          const Color(0xFF2E86C1),
+          const Color(0xFF1A3A6B),
+          const Color(0xFF0D1B3E),
+        ],
+      ).createShader(Rect.fromCircle(center: winCenter, radius: 15)));
+
+    // Earth/planet inside window
+    canvas.drawCircle(winCenter, 10, Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-.2, -.2),
+        colors: [
+          const Color(0xFF48CAE4),
+          const Color(0xFF2196F3),
+          const Color(0xFF0D47A1),
+        ],
+      ).createShader(Rect.fromCircle(center: winCenter, radius: 10)));
+
+    // Cloud streaks on planet (orbit-animated)
+    final cloudPath = Path()
+      ..moveTo(cx - 8, 105 + floatY + sin(orbit * 2 * pi) * 2)
+      ..lineTo(cx + 6, 105 + floatY + sin(orbit * 2 * pi) * 2);
+    canvas.drawPath(cloudPath, Paint()
+      ..color = Colors.white.withOpacity(0.35)
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke);
+
+    // Specular highlight on window glass
+    canvas.drawCircle(
+      Offset(cx - 6, 100 + floatY),
+      5,
+      Paint()
+        ..color = Colors.white.withOpacity(0.30)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+
+    // Inner ring glow (orbit-animated color)
+    canvas.drawCircle(winCenter, 17, Paint()
+      ..color = const Color(0xFF2F8FFF)
+          .withOpacity(0.15 + 0.12 * sin(orbit * 2 * pi).abs())
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5);
+  }
+
+  // ── ORBIT FRONT (in front of rocket) ─────────────────────────────
+  void _drawOrbitFront(Canvas canvas, double cx, double cy, double t) {
+    final oy = cy + 15;
+    final rect = Rect.fromCenter(center: Offset(cx, oy), width: 130, height: 36);
+    final startAngle = t * 2 * pi;
+
+    // Front arc (solid)
+    canvas.drawArc(
+      rect, startAngle + pi * 0.08 + pi, pi - 0.16, false,
+      Paint()
+        ..color = const Color(0xFF7B2FFF).withOpacity(0.65)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
+    );
+
+    // Orbiting particle
+    final particleAngle = startAngle + pi;
+    final px = cx + 65 * cos(particleAngle);
+    final py = oy + 18 * sin(particleAngle);
+    // Only draw particle on front half
+    if (sin(particleAngle) > 0) {
+      canvas.drawCircle(Offset(px, py), 5, Paint()
+        ..color = const Color(0xFF7B2FFF).withOpacity(0.9)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawCircle(Offset(px, py), 2.5, Paint()
+        ..color = Colors.white.withOpacity(0.85));
+    }
+  }
+
+  // ── SPECULAR BODY HIGHLIGHT ────────────────────────────────────────
+  void _drawSpecular(Canvas canvas, double cx, double floatY) {
+    // Left edge highlight (simulates 3D cylinder light from left)
+    final specPath = Path()
+      ..moveTo(cx - 27, 80 + floatY)
+      ..cubicTo(cx - 31, 100 + floatY, cx - 31, 140 + floatY, cx - 26, 175 + floatY);
+    canvas.drawPath(specPath, Paint()
+      ..color = Colors.white.withOpacity(0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+
+    // Top nose shine
+    canvas.drawCircle(
+      Offset(cx - 10, 52 + floatY),
+      4.5,
+      Paint()
+        ..color = Colors.white.withOpacity(0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Rocket3DPainter o) =>
+      o.float != float || o.flame != flame || o.orbit != orbit ||
+      o.glow != glow || o.trail != trail;
 }
 
 // ═══════════════════════════════════════════════════════════
