@@ -38,7 +38,7 @@ final appRouter = GoRouter(
               // direct Stack child (no outer RepaintBoundary wrapper).
               const AnimatedBg(),
               // Particles has its own internal RepaintBoundary.
-              const Particles(count: 20),
+              const Particles(count: 35),
               SafeArea(child: child),
               const Positioned(
                 top: 0,
